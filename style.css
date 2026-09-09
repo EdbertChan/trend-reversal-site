@@ -86,3 +86,5 @@ td.long{color:var(--good)}td.short{color:var(--bad)}
 .barinfo .fire{color:var(--good);font-weight:600}
 .barinfo .nofire{color:var(--dim)}
 .barinfo .traded{margin-top:.7rem;padding-top:.7rem;border-top:1px solid var(--line)}
+.gesture-hint{color:var(--dim);font-size:12px;margin-left:auto}
+#session{cursor:crosshair;touch-action:none}

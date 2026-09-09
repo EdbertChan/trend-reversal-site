@@ -176,6 +176,7 @@ function drawSession(date, keepZoom){
     options:{...base,
       plugins:{legend:{display:false}, tooltip:{enabled:false}},
       onClick:(e, els, chart)=>{
+        if (suppressClick) { suppressClick = false; return; }
         const idx = Math.round(chart.scales.x.getValueForPixel(e.x));
         if (idx >= 0 && idx < bars.length) { pickedBar = a + idx; explainBar(date); }
       },
@@ -185,6 +186,7 @@ function drawSession(date, keepZoom){
     plugins:[candles, markers]
   });
   sessionChart.$bars = bars; sessionChart.$trades = shifted; sessionChart.update();
+  wireChartGestures();
 
   $("#dtrades tbody").innerHTML = trades.map(t2=>`
     <tr><td>${d.bars[t2.ei]?.t ?? ""}</td>
@@ -205,6 +207,65 @@ function drawSession(date, keepZoom){
   if (pickedBar !== null) explainBar(date); 
   if (!keepZoom) $("#day").scrollIntoView({behavior:"smooth", block:"start"});
 }
+
+
+function wireChartGestures(){
+  const cv = $("#session");
+  if (!cv || cv.dataset.wired) return;
+  cv.dataset.wired = "1";
+
+  const clampZoom = (a, b, n) => {
+    const w = Math.max(10, Math.min(n, b - a + 1));
+    let lo = Math.round(a), hi = lo + w - 1;
+    if (lo < 0) { lo = 0; hi = w - 1; }
+    if (hi > n - 1) { hi = n - 1; lo = hi - w + 1; }
+    return (w >= n) ? null : [lo, hi];
+  };
+
+  cv.addEventListener("wheel", e => {
+    if (!currentDay || !DAYS || !sessionChart) return;
+    e.preventDefault();
+    const n = DAYS[currentDay].bars.length;
+    let [a, b] = zoom || [0, n - 1];
+    const span = b - a + 1;
+    // keep the bar under the cursor fixed while the window grows or shrinks
+    const frac = Math.min(1, Math.max(0, sessionChart.scales.x.getValueForPixel(e.offsetX) / (span - 1)));
+    const anchor = a + frac * (span - 1);
+    const factor = e.deltaY < 0 ? 0.8 : 1.25;
+    const w = Math.max(10, Math.min(n, Math.round(span * factor)));
+    zoom = clampZoom(anchor - frac * (w - 1), anchor + (1 - frac) * (w - 1), n);
+    drawSession(currentDay, true);
+  }, {passive:false});
+
+  let dragging = false, startX = 0, startZoom = null;
+  cv.addEventListener("pointerdown", e => {
+    if (!currentDay || !DAYS) return;
+    dragging = true; startX = e.offsetX;
+    const n = DAYS[currentDay].bars.length;
+    startZoom = zoom || [0, n - 1];
+    cv.setPointerCapture(e.pointerId); cv.style.cursor = "grabbing";
+  });
+  cv.addEventListener("pointermove", e => {
+    if (!dragging || !sessionChart) return;
+    const n = DAYS[currentDay].bars.length;
+    const [a, b] = startZoom, span = b - a + 1;
+    const perPx = span / sessionChart.chartArea.width;
+    const shift = Math.round((startX - e.offsetX) * perPx);
+    if (!shift) return;
+    zoom = clampZoom(a + shift, b + shift, n);
+    drawSession(currentDay, true);
+  });
+  const endDrag = e => {
+    if (!dragging) return;
+    dragging = false; cv.style.cursor = "crosshair";
+    // a drag is not a click; suppress the bar-pick that would otherwise fire
+    if (Math.abs(e.offsetX - startX) > 3) suppressClick = true;
+  };
+  cv.addEventListener("pointerup", endDrag);
+  cv.addEventListener("pointercancel", endDrag);
+  cv.addEventListener("dblclick", () => { zoom = null; drawSession(currentDay, true); });
+}
+let suppressClick = false;
 
 function explainBar(date){
   const d = DAYS[date], lag = $("#d-lag").value, key = $("#d-view").value + lag;
