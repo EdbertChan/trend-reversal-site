@@ -1,0 +1,183 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Trend Reversal — Results</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<nav>
+  <div class="brand">Trend Reversal</div>
+  <a href="#top" class="on">Verdict</a>
+  <a href="#chart">Every scenario</a>
+  <a href="#compare">Chart vs live</a>
+  <a href="#table">All 384</a>
+  <a href="#why">Why</a>
+  <a href="#notes">Footnotes</a>
+</nav>
+
+<main>
+<header id="top">
+  <h1>Does the reversal indicator make money?</h1>
+  <p class="lead">NQ futures. 1,988,519 one-minute bars, Jan 2021 – Sep 2026.
+     384 scenarios tested. Start: $10,000.</p>
+
+  <div class="verdict">
+    <div class="card bad">
+      <div class="k">As you'd actually trade it</div>
+      <div class="v" id="v-live">—</div>
+      <div class="s">Best realistic scenario, 1 year, micro contract</div>
+    </div>
+    <div class="card ghost">
+      <div class="k">As the chart shows it</div>
+      <div class="v" id="v-chart">—</div>
+      <div class="s">Impossible — the chart knows the future</div>
+    </div>
+    <div class="card">
+      <div class="k">Scenarios that beat a coin flip</div>
+      <div class="v" id="v-beat">—</div>
+      <div class="s">Out of 384 tested</div>
+    </div>
+  </div>
+
+  <div class="tldr">
+    <h2>The short version</h2>
+    <p><strong>The chart lies about timing.</strong> A reversal marker appears on the
+    candle where the turn happened — but it isn't drawn until about 50 minutes later,
+    once price has moved far enough to prove it was a turn. You cannot trade the
+    price under the marker.</p>
+    <p><strong>Traded honestly, the edge is thin and fragile.</strong> The best
+    realistic scenario returns 40.7% over a year but drops a third of the account
+    doing it. Remove its five best days and it goes negative.</p>
+    <p><strong>The stop level doesn't matter.</strong> 10%, 20% and 30% stops
+    produced identical results — none of them ever triggered. 10% of NQ is about
+    2,900 points; the average trade lasts two hours.</p>
+  </div>
+</header>
+
+<section id="chart">
+  <h2>Every scenario, one year of $10,000</h2>
+  <p class="hint">Each line is one configuration. Use the filters.</p>
+  <div class="controls">
+    <label>Instrument <select id="f-inst"><option>MNQ</option><option>NQ</option></select></label>
+    <label>View <select id="f-view"><option value="live">Live (tradeable)</option><option value="chart">Chart (hindsight)</option><option value="">Both</option></select></label>
+    <label>Lookback <select id="f-lb"><option>12</option><option>6</option><option>3</option><option>1</option></select></label>
+    <label>Stop rule <select id="f-scn">
+      <option value="">All</option><option value="A">A — structural stop</option>
+      <option value="B">B — structural + %</option><option value="C">C — % only</option>
+      <option value="D">D — no stop</option></select></label>
+    <label>ATR <select id="f-lag"><option value="">Both</option><option value="0">Current bar</option><option value="1">Lagged 1 bar</option></select></label>
+  </div>
+  <div class="canvas-wrap"><canvas id="equity"></canvas></div>
+  <div id="legend" class="legend"></div>
+  <p class="hint" style="margin-top:.8rem">Click any point on the equity curve to see that
+     session's candles and the trades that produced it.</p>
+</section>
+
+<section id="day" hidden>
+  <h2>Session detail — <span id="day-date"></span></h2>
+  <div class="controls">
+    <label>Signal timing <select id="d-view">
+      <option value="live">Live — what you could trade</option>
+      <option value="chart">Chart — what the study draws</option>
+    </select></label>
+    <label>ATR <select id="d-lag"><option value="0">Current bar</option><option value="1">Lagged 1 bar</option></select></label>
+    <label>&nbsp;<button id="d-close">Close</button></label>
+  </div>
+  <div class="canvas-wrap"><canvas id="session"></canvas></div>
+  <div class="table-wrap" style="max-height:300px;margin-top:1rem">
+    <table id="dtrades"><thead><tr>
+      <th>Entry</th><th>Side</th><th class="num">Price</th><th class="num">Stop</th>
+      <th>Exit</th><th class="num">Exit px</th><th>Why</th><th class="num">Points</th><th class="num">Net $</th>
+    </tr></thead><tbody></tbody></table>
+  </div>
+  <p class="hint" id="day-total"></p>
+</section>
+
+<section id="compare">
+  <h2>The gap between what you see and what you get</h2>
+  <p class="hint">Same rules, same bars. The only difference is <em>when</em> the signal is known.</p>
+  <div class="canvas-wrap short"><canvas id="gap"></canvas></div>
+  <p class="hint">Log scale. Chart view runs 50–100× the live view at every lookback.</p>
+</section>
+
+<section id="table">
+  <h2>All 384 scenarios</h2>
+  <div class="controls">
+    <label>Show <select id="t-filter">
+      <option value="live">Tradeable only</option>
+      <option value="all">Everything</option>
+      <option value="survived">Survived only</option>
+      <option value="implausible">Flagged impossible</option>
+    </select></label>
+    <label>Sort <select id="t-sort">
+      <option value="final">Final balance</option>
+      <option value="ret">Return %</option>
+      <option value="maxdd_pct">Max drawdown</option>
+    </select></label>
+  </div>
+  <div class="table-wrap"><table id="grid"><thead><tr>
+    <th>Instr</th><th>Look</th><th>Stop</th><th>View</th><th>ATR</th>
+    <th class="num">Final $</th><th class="num">Return</th><th class="num">Max DD</th>
+    <th class="num">Green days</th><th>Survived</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<section id="why">
+  <h2>Why the numbers look like this</h2>
+  <div class="two">
+    <div>
+      <h3>The marker is a receipt, not a forecast</h3>
+      <p>A swing high only counts once price falls 2×ATR below it — about 50 NQ points.
+      Until that happens, nothing distinguishes it from any other local high.</p>
+      <p>On 1 April, six candles between 22:00 and 01:00 were all local highs. One got a
+      marker. The one that got it wasn't the highest — 00:00 made a higher high and got
+      nothing. What separated them was what price did <em>next</em>.</p>
+    </div>
+    <div>
+      <h3>Proof, not opinion</h3>
+      <p>Feed the code data ending at 00:05, 00:30, 00:45 — no signal at 00:05. Feed it
+      data ending 00:55 — the 00:05 signal appears.</p>
+      <table class="mini"><tr><th>Data ends</th><th>Signal at 00:05?</th></tr>
+      <tr><td>00:05</td><td class="no">no</td></tr>
+      <tr><td>00:30</td><td class="no">no</td></tr>
+      <tr><td>00:45</td><td class="no">no</td></tr>
+      <tr><td><strong>00:55</strong></td><td class="yes"><strong>yes</strong></td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>The shape of the returns</h3>
+      <p>The best live scenario has a <strong>positive mean and a negative median</strong>:
+      you lose on most days and get rescued by a few large wins. 122 green days out of 260.</p>
+      <p>Remove the five best days from any live scenario and every one turns negative.
+      In three of them, removing <em>two</em> days is enough.</p>
+    </div>
+    <div>
+      <h3>What we still don't know</h3>
+      <p>Fees were ruled out as the explanation for the chart/live gap (under 0.01% of it),
+      and stops were ruled out as necessary. That is not proof that timing explains the rest.</p>
+      <p>Settling it needs matched pivot records — pivot and confirmation timestamps, both
+      views' entries and exits. The daily files can't do it.</p>
+    </div>
+  </div>
+</section>
+
+<section id="notes">
+  <h2>Footnotes</h2>
+  <ol class="notes">
+    <li><strong>Sizing is one fixed contract, never compounding.</strong> One NQ contract needs
+    about $20,000 margin, so a $10,000 account cannot hold it — the NQ rows compare P&amp;L
+    streams, not tradeable plans. MNQ at $2/point is the realistic column.</li>
+    <li><strong>Costs:</strong> $9 per NQ round trip, $0.90 for MNQ. No slippage beyond that,
+    no taxes, no financing.</li>
+    <li><strong>"Survived"</strong> means the daily balance never hit zero. It cannot prove
+    survival of intraday losses or a broker liquidation, because the data is daily.</li>
+    <li><strong>Chart view is hindsight</strong> and appears here only to size the gap. 66 of
+    192 chart combinations have <em>no losing day at all</em> — that is the tell.</li>
+    <li><strong>Only the 12-month sweeps cover a full year.</strong> The 1, 3 and 6-month rows
+    report their actual observed period and are not annualised.</li>
+    <li><strong>Full detail</strong> lives in <code>reports/master-capital.md</code>,
+    <code>master-distribution.md</code> and <code>master-thesis.md</code>, with the
+    per-day source data in <code>reports/daily-*.csv</code>.</li>
+  </ol>
+</section>
+</main>
+<script src="app.js"></script>
+</body></html>
