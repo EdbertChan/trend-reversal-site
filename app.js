@@ -93,6 +93,8 @@ function table(){
 
 // ---- session detail: candles + trade markers ----
 let DAYS = null, sessionChart = null, currentDay = null;
+let zoom = null;               // [from, to] bar indices, null = whole session
+let pickedBar = null;
 
 const candles = {
   id:"candles",
@@ -145,46 +147,111 @@ const markers = {
   }
 };
 
-function drawSession(date){
+function drawSession(date, keepZoom){
   if (!DAYS || !DAYS[date]) return;
+  if (currentDay !== date || !keepZoom) { zoom = null; pickedBar = null; }
   currentDay = date;
   const d = DAYS[date];
   const key = $("#d-view").value + $("#d-lag").value;
+  const lag = $("#d-lag").value;
   const trades = d.trades[key] || [];
+  const mathRows = (d.math && d.math[lag]) || [];
+  const n = d.bars.length;
+  const [a, b] = zoom || [0, n - 1];
+  const bars = d.bars.slice(a, b + 1);
+
   $("#day").hidden = false;
   $("#day-date").textContent = date;
-  const lo = Math.min(...d.bars.map(b=>b.l)), hi = Math.max(...d.bars.map(b=>b.h)), pad = (hi-lo)*0.06;
+  $("#zrange").textContent = `bars ${a}–${b} of ${n - 1}  (${d.bars[a].t}–${d.bars[b].t} PT)`;
+  const lo = Math.min(...bars.map(x=>x.l)), hi = Math.max(...bars.map(x=>x.h)), pad = (hi-lo)*0.06 || 1;
+
+  const shifted = trades
+    .filter(t2 => t2.xi >= a && t2.ei <= b)
+    .map(t2 => ({...t2, ei: t2.ei - a, xi: t2.xi - a}));
 
   if (sessionChart) sessionChart.destroy();
   sessionChart = new Chart($("#session"), {
     type:"line",
-    data:{labels:d.bars.map(b=>b.t), datasets:[{data:d.bars.map(b=>b.c), borderColor:"transparent", pointRadius:0}]},
+    data:{labels:bars.map(x=>x.t), datasets:[{data:bars.map(x=>x.c), borderColor:"transparent", pointRadius:0}]},
     options:{...base,
       plugins:{legend:{display:false}, tooltip:{enabled:false}},
+      onClick:(e, els, chart)=>{
+        const idx = Math.round(chart.scales.x.getValueForPixel(e.x));
+        if (idx >= 0 && idx < bars.length) { pickedBar = a + idx; explainBar(date); }
+      },
       scales:{ x:{grid:{color:C.line}, ticks:{color:C.dim, maxTicksLimit:14, font:{size:10}}},
                y:{min:lo-pad, max:hi+pad, grid:{color:C.line},
                   ticks:{color:C.dim, font:{size:10}, callback:v=>v.toLocaleString()}}}},
     plugins:[candles, markers]
   });
-  sessionChart.$bars = d.bars; sessionChart.$trades = trades; sessionChart.update();
+  sessionChart.$bars = bars; sessionChart.$trades = shifted; sessionChart.update();
 
-  $("#dtrades tbody").innerHTML = trades.map(t=>`
-    <tr><td>${d.bars[t.ei]?.t ?? ""}</td>
-    <td class="${t.side}">${t.side.toUpperCase()}</td>
-    <td class="num">${t.entry.toLocaleString()}</td>
-    <td class="num">${t.stop.toLocaleString()}</td>
-    <td>${d.bars[t.xi]?.t ?? ""}</td>
-    <td class="num">${t.exit.toLocaleString()}</td>
-    <td>${t.why}</td>
-    <td class="num" style="color:${t.pts>=0?C.good:C.bad}">${t.pts>0?"+":""}${t.pts}</td>
-    <td class="num" style="color:${t.usd>=0?C.good:C.bad}">${fmt(t.usd)}</td></tr>`).join("")
+  $("#dtrades tbody").innerHTML = trades.map(t2=>`
+    <tr><td>${d.bars[t2.ei]?.t ?? ""}</td>
+    <td class="${t2.side}">${t2.side.toUpperCase()}</td>
+    <td class="num">${t2.entry.toLocaleString()}</td>
+    <td class="num">${t2.stop.toLocaleString()}</td>
+    <td>${d.bars[t2.xi]?.t ?? ""}</td>
+    <td class="num">${t2.exit.toLocaleString()}</td>
+    <td>${t2.why}</td>
+    <td class="num" style="color:${t2.pts>=0?C.good:C.bad}">${t2.pts>0?"+":""}${t2.pts}</td>
+    <td class="num" style="color:${t2.usd>=0?C.good:C.bad}">${fmt(t2.usd)}</td></tr>`).join("")
     || `<tr><td colspan="9" style="color:${C.dim}">no signals this session</td></tr>`;
 
-  const net = trades.reduce((a,t)=>a+t.usd,0), wins = trades.filter(t=>t.pts>0).length;
+  const net = trades.reduce((s,t2)=>s+t2.usd,0), wins = trades.filter(t2=>t2.pts>0).length;
   $("#day-total").textContent = trades.length
     ? `${trades.length} trades, ${wins} winners, net ${fmt(net)} on one NQ contract (times 0.1 for MNQ).`
     : "";
-  $("#day").scrollIntoView({behavior:"smooth", block:"start"});
+  if (pickedBar !== null) explainBar(date); 
+  if (!keepZoom) $("#day").scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+function explainBar(date){
+  const d = DAYS[date], lag = $("#d-lag").value, key = $("#d-view").value + lag;
+  const i = pickedBar, bar = d.bars[i];
+  if (!bar) return;
+  const m = (d.math && d.math[lag] && d.math[lag][i]) || null;
+  const trades = d.trades[key] || [];
+  const entered = trades.find(t2 => t2.ei === i);
+  const exited  = trades.find(t2 => t2.xi === i);
+  const held    = trades.find(t2 => t2.ei < i && t2.xi > i);
+
+  let html = `<div class="hdr">${bar.t} PT — ${bar.c.toLocaleString()}</div>`;
+  html += `<div class="row"><span>Bar</span><b>O ${bar.o.toLocaleString()} · H ${bar.h.toLocaleString()} · L ${bar.l.toLocaleString()} · C ${bar.c.toLocaleString()}</b></div>`;
+
+  if (m) {
+    const [fall, rise, need, peak, trough, peakT, troughT] = m;
+    const upFires = rise >= need, dnFires = fall >= need;
+    html += `<div class="row"><span>Threshold here (2×ATR)</span><b>${need.toFixed(1)} pts</b></div>`;
+    html += `<div class="row"><span>Rise from the low held at ${troughT} (${trough.toLocaleString()})</span>
+             <b class="${upFires?"fire":"nofire"}">${rise.toFixed(1)} / ${need.toFixed(1)}</b></div>`;
+    html += `<div class="row"><span>Fall from the high held at ${peakT} (${peak.toLocaleString()})</span>
+             <b class="${dnFires?"fire":"nofire"}">${fall.toFixed(1)} / ${need.toFixed(1)}</b></div>`;
+    html += `<div class="why">`;
+    if (upFires)      html += `<span class="fire">Rise cleared the threshold</span> — a low is confirmed, so this is a BUY bar.`;
+    else if (dnFires) html += `<span class="fire">Fall cleared the threshold</span> — a high is confirmed, so this is a SELL bar.`;
+    else {
+      const short = Math.min(need - rise, need - fall);
+      html += `<span class="nofire">No signal.</span> Price is still ${short.toFixed(1)} points short of the
+               ${need.toFixed(1)}-point move the rule needs before it will call either extreme a reversal.
+               The swing may already be over — the rule cannot know that yet.`;
+    }
+    html += `</div>`;
+  } else {
+    html += `<div class="why nofire">No threshold data for this bar.</div>`;
+  }
+
+  if (entered) html += `<div class="traded"><b>Traded here.</b> ${entered.side.toUpperCase()} at
+      ${entered.entry.toLocaleString()}, stop ${entered.stop.toLocaleString()}, exited ${d.bars[entered.xi]?.t}
+      at ${entered.exit.toLocaleString()} (${entered.why}) for
+      <b style="color:${entered.pts>=0?C.good:C.bad}">${entered.pts>0?"+":""}${entered.pts} pts</b>.</div>`;
+  else if (exited) html += `<div class="traded"><b>Position closed here</b> (${exited.why}) at
+      ${exited.exit.toLocaleString()} for <b style="color:${exited.pts>=0?C.good:C.bad}">${exited.pts>0?"+":""}${exited.pts} pts</b>.</div>`;
+  else if (held) html += `<div class="traded">Holding a ${held.side} from ${d.bars[held.ei]?.t}
+      at ${held.entry.toLocaleString()}, stop ${held.stop.toLocaleString()}.</div>`;
+  else html += `<div class="traded nofire">No position open or opened on this bar.</div>`;
+
+  $("#barinfo").innerHTML = html;
 }
 
 function wireSession(){
@@ -196,7 +263,24 @@ function wireSession(){
     if (!DAYS) { fetch("days.json").then(r=>r.json()).then(d=>{DAYS=d; drawSession(label);}); }
     else drawSession(label);
   };
-  ["#d-view","#d-lag"].forEach(s => $(s).onchange = () => currentDay && drawSession(currentDay));
+  ["#d-view","#d-lag"].forEach(s => $(s).onchange = () => currentDay && drawSession(currentDay, true));
+  document.querySelectorAll(".zoombar button").forEach(btn => btn.onclick = () => {
+    if (!currentDay || !DAYS) return;
+    const bars = DAYS[currentDay].bars, n = bars.length;
+    let [a,b] = zoom || [0, n-1];
+    const mid = Math.round((a+b)/2), span = b-a+1;
+    const k = btn.dataset.z;
+    if (k === "all") zoom = null;
+    else if (k === "rth") {
+      const s = bars.findIndex(x => x.t >= "06:30"), e = bars.findIndex(x => x.t >= "13:00");
+      zoom = [s < 0 ? 0 : s, e < 0 ? n-1 : e];
+    }
+    else if (k === "in")  { const w = Math.max(12, Math.round(span/2));
+                            zoom = [Math.max(0, mid - Math.round(w/2)), Math.min(n-1, mid + Math.round(w/2))]; }
+    else if (k === "out") { const w = Math.min(n, span*2);
+                            zoom = (w >= n) ? null : [Math.max(0, mid - Math.round(w/2)), Math.min(n-1, mid + Math.round(w/2))]; }
+    drawSession(currentDay, true);
+  });
   $("#d-close").onclick = () => { $("#day").hidden = true; };
 }
 

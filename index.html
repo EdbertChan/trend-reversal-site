@@ -82,7 +82,15 @@
     <label>ATR <select id="d-lag"><option value="0">Current bar</option><option value="1">Lagged 1 bar</option></select></label>
     <label>&nbsp;<button id="d-close">Close</button></label>
   </div>
+  <div class="zoombar">
+    <button data-z="all">Full session</button>
+    <button data-z="rth">US hours</button>
+    <button data-z="in">Zoom in</button>
+    <button data-z="out">Zoom out</button>
+    <span id="zrange"></span>
+  </div>
   <div class="canvas-wrap"><canvas id="session"></canvas></div>
+  <div id="barinfo" class="barinfo">Click any candle to see why it did or didn't trigger.</div>
   <div class="table-wrap" style="max-height:300px;margin-top:1rem">
     <table id="dtrades"><thead><tr>
       <th>Entry</th><th>Side</th><th class="num">Price</th><th class="num">Stop</th>

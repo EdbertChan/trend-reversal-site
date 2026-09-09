@@ -70,3 +70,19 @@ code{font-family:var(--mono);font-size:12.5px;background:var(--panel);padding:.1
 .controls button:hover{border-color:var(--accent)}
 #equity{cursor:pointer}
 td.long{color:var(--good)}td.short{color:var(--bad)}
+
+.zoombar{display:flex;gap:.5rem;align-items:center;margin-bottom:.7rem;flex-wrap:wrap}
+.zoombar button{background:var(--panel);color:var(--fg);border:1px solid var(--line);
+  border-radius:6px;padding:.35rem .8rem;font-size:13px;cursor:pointer}
+.zoombar button:hover{border-color:var(--accent)}
+.zoombar #zrange{color:var(--dim);font-size:12px;font-family:var(--mono)}
+.barinfo{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);
+  border-radius:8px;padding:1rem 1.2rem;margin-top:1rem;font-size:14px;line-height:1.7}
+.barinfo .hdr{font-weight:600;font-size:15px;margin-bottom:.5rem}
+.barinfo .row{display:flex;justify-content:space-between;gap:2rem;padding:.15rem 0;
+  border-bottom:1px solid rgba(255,255,255,.04);font-variant-numeric:tabular-nums}
+.barinfo .row b{font-family:var(--mono)}
+.barinfo .why{margin-top:.7rem;color:#c9d1d9}
+.barinfo .fire{color:var(--good);font-weight:600}
+.barinfo .nofire{color:var(--dim)}
+.barinfo .traded{margin-top:.7rem;padding-top:.7rem;border-top:1px solid var(--line)}
